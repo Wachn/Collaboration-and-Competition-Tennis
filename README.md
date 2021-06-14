@@ -55,6 +55,7 @@ More Information and Troubleshooting
     ```
 For more details refer to the [instructions](https://github.com/Unity-Technologies/ml-agents/blob/main/docs/Installation.md), you will install PyTorch and the ML-Agents toolkit for the project. For this project it is not necessary to install the unity package in the link, it has been attached to the repository.
 
+- `pip instal mlagents==0.4.0` Use only this version of mlagents or else the environment will be stuck in limbo when using the `UnityEnvironment()`
 
 Usage
 -------

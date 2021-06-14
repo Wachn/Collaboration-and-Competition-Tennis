@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.functional as F
+import torch.optim as optim
 
 
 def swish(x):
@@ -20,7 +21,7 @@ ddpgCritic_body_dim = (256, 128)
 class DDPGmodel(nn.Module):
     """Model designed for DDPG"""
 
-    def __init__(self, state_size, action_size, ddpgActor_body_dim, ddpgCritic_body_dim, seed):
+    def __init__(self, state_size, action_size, ddpgActor_body_dim, ddpgCritic_body_dim, seed, lr_actor, lr_critic, weight_decay):
         super(DDPGmodel, self).__init__()
         """
         Initialise DDPG model for DDPG algorithm, consist of both actor and crictic method"""
@@ -44,6 +45,14 @@ class DDPGmodel(nn.Module):
         )
         self.critic_feature_dim = self.ddpgCritic_dim[-1]
         self.critic_fc = uniform_init(nn.Linear(self.critic_feature_dim,1))
+
+
+        # Parameters for backpropagation
+        self.actor_params = list(self.actor.parameters()) + list(self.actor_fc.parameters())
+        self.critic_params = list(self.critic.parameters()) + list (self.critic_fc.parameters())
+
+        self.optim_actor = optim.Adam(self.actor_params, lr=lr_actor, weight_decay=weight_decay)
+        self.optim_critic = optim.Adam(self.critic_params, lr=lr_critic, weight_decay=weight_decay)
 
     def forward(self, x):
         """Forward action here"""
