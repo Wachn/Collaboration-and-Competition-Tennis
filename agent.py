@@ -1,13 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.functional as F
+import random
+import numpy as np
+import copy
 
 from models import *
 
 class DDPG_agent():
     """This class object design  the ddpg agent
     """
-    def __init__(self, state_size, action_size, ddpg_body_dim, seed, batch_Sizse, tau, decay_noise,
+    def __init__(self, state_size, action_size, ddpg_body_dim, seed, batch_size, tau, decay_noise,
                  lr_actor, lr_critic, weight_decay):
         """INitialise an Agent
         :param
@@ -16,9 +19,16 @@ class DDPG_agent():
             seed (int): random seed
             batch_size (int): size of each samples
             tau (float): Learning rate of the
-            decay_noise (float): OUIS noise will decay with each time step
+            decay_noise (float): OUIS noise will decay with each time step; set to 0 to switch off noise
 
         """
+        # Parameters
+        self.state_size = state_size
+        self.action_size = action_size
+        self.seed  = random.seed(seed)
+        self.tau = tau
+        self.decay_noise = decay_noise
+        self.batch_size = batch_size
 
         # Actor and critic network
         self.network_local = DDPGmodel(state_size=state_size, action_size=action_size,
@@ -31,41 +41,46 @@ class DDPG_agent():
 
         self.noise = OUNoise(action_size, seed)
 
-    def step(self):
+    def act(self, state, noise=1.0):
+        state = state.to(device)
+        action = self.network_local.actor_forward(state) + self.decay_noise * self.noise.level * noise
+
+        # Update decaying factor for noise
+        self.decay_noise = self.decay_noise * np.random.choice([0.9999, 1], p=(0.1, 0.9))
+
+        return action
+
+    def target_act(self, state, noise):
+        state = state.to(device)
+        action = self.network_target.actor_forward(state) + self.decay_noise * self.noise.level() * noise
+
+        # Update decaying factor for noise
+        self.decay_noise = self.decay_noise * np.random.choice([0.9999, 1], p=(0.1, 0.9))
+
+        return action
 
 
 
-class ReplayBuffer:
-    """
-    Buffer containing fixed length tuple
-    """
-    def __init__(self, action_size, buffer_size, batch_size, seed):
-        self.action_size = action_size
-        self.memory = deque(maxlen=buffer_size)
-        self.experience = namedtuple("Experience", field_names=['state','action','reward','next_state','done'])
+class OUNoise:
+    """Ornstein_Uhlenbeck Process"""
+
+    def __init__(self, size, seed, mu=0, theta=0.15, sigma=0.2):
+        self.mu = mu * np.ones(size)
+        self.theta = theta
+        self.sigma
         self.seed = random.seed(seed)
-        self.batch_size = batch_size
+        self.reset()
 
-    def add_experience(self, state, action, reward, next_state, done ):
-        """
-        Add new experience to the memory buffer
-        """
-        exp = self.experience(state,action,reward,next_state,done)
-        self.memory.append(exp)
+    def reset(self):
+        """Reset the internal state to the mean (mu)"""
+        self.state = copy.copy(self.mu)
 
-    def sample(self):
-        """
-        Randomly sample a mini-batch of experience
-        """
-        experiences = random.sample(self.memory, k=self.batch_size)
-        # Convert to torch tensors
-        states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(device)
-        actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).float().to(device)
-        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(device)
-        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(device)
-        dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
+    def level(self):
+        """Define the update for noise level"""
+        x = self.state
+        dx = self.theta * (self.mu -x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        self.state = x + dx
+        return self.state
 
-        return (states,actions,rewards,next_states,dones)
 
-    def __len__(self):
-        return len(self.memory)
+

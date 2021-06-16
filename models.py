@@ -30,7 +30,7 @@ class DDPGmodel(nn.Module):
         self.state_size = state_size
         self.action_size = action_size
         self.ddpgActor_dim = (state_size,) + ddpgActor_body_dim
-        self.ddpgCritic_dim = (state_size + action_size,) + ddpgCritic_body_dim
+        self.ddpgCritic_dim = (state_size + 2*action_size,) + ddpgCritic_body_dim
 
         # Actor
         self.actor = nn.ModuleList(
@@ -54,7 +54,7 @@ class DDPGmodel(nn.Module):
         self.optim_actor = optim.Adam(self.actor_params, lr=lr_actor, weight_decay=weight_decay)
         self.optim_critic = optim.Adam(self.critic_params, lr=lr_critic, weight_decay=weight_decay)
 
-    def forward(self, x):
+    def actor_forward(self, x):
         """Forward action here"""
         for layer in self.actor:
             x = swish(layer(x))

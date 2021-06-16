@@ -3,3 +3,5 @@ Tennis_Linux_NoVis/
 .idea
 Tennis_Windows_x86_64/
 python/
+.ipynb_checkpoints/
+unity-environment.log
