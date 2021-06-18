@@ -11,7 +11,7 @@ class DDPG_agent():
     """This class object design  the ddpg agent
     """
     def __init__(self, state_size, action_size, ddpg_body_dim, seed, batch_size, tau, decay_noise,
-                 lr_actor, lr_critic, weight_decay):
+                 lr_actor, lr_critic, weight_decay, device):
         """INitialise an Agent
         :param
             state_siize (int): Dimensions of each states; (n_agents, dims) - (2,24)
@@ -29,11 +29,12 @@ class DDPG_agent():
         self.tau = tau
         self.decay_noise = decay_noise
         self.batch_size = batch_size
+        self.device = device
 
         # Actor and critic network
         self.network_local = DDPGmodel(state_size=state_size, action_size=action_size,
                                        ddpgActor_body_dim=ddpg_body_dim[0], ddpgCritic_body_dim=ddpg_body_dim[1],
-                                       seed=seed, lr_actor=lr_actor, lr_critic=lr_critic, weight_decay=, weight_decay)
+                                       seed=seed, lr_actor=lr_actor, lr_critic=lr_critic, weight_decay=weight_decay)
         self.network_target = DDPGmodel(state_size=state_size, action_size=action_size,
                                         ddpgActor_body_dim=ddpg_body_dim[0], ddpgCritic_body_dim=ddpg_body_dim[1],
                                         seed=seed, lr_actor=lr_actor, lr_critic=lr_critic, weight_decay=weight_decay)
@@ -42,7 +43,7 @@ class DDPG_agent():
         self.noise = OUNoise(action_size, seed)
 
     def act(self, state, noise=1.0):
-        state = state.to(device)
+        state = state.to(self.device)
         action = self.network_local.actor_forward(state) + self.decay_noise * self.noise.level * noise
 
         # Update decaying factor for noise
@@ -51,7 +52,7 @@ class DDPG_agent():
         return action
 
     def target_act(self, state, noise):
-        state = state.to(device)
+        state = state.to(self.device)
         action = self.network_target.actor_forward(state) + self.decay_noise * self.noise.level() * noise
 
         # Update decaying factor for noise
@@ -67,7 +68,7 @@ class OUNoise:
     def __init__(self, size, seed, mu=0, theta=0.15, sigma=0.2):
         self.mu = mu * np.ones(size)
         self.theta = theta
-        self.sigma
+        self.sigma = sigma
         self.seed = random.seed(seed)
         self.reset()
 

@@ -41,7 +41,7 @@ class DDPGmodel(nn.Module):
 
         # Critic
         self.critic = nn.ModuleList(
-            [uniform_init(nn.Linear(dim_in, dim_out)) for dim_in, dim_out in zip(ddpgCritic_dim[:-1], ddpgCritic_dim[1:])]
+            [uniform_init(nn.Linear(dim_in, dim_out)) for dim_in, dim_out in zip(self.ddpgCritic_dim[:-1], self.ddpgCritic_dim[1:])]
         )
         self.critic_feature_dim = self.ddpgCritic_dim[-1]
         self.critic_fc = uniform_init(nn.Linear(self.critic_feature_dim,1))

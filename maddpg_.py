@@ -5,7 +5,7 @@ import numpy as np
 import random
 
 
-device = 'cpu'
+#device = 'cpu'
 
 
 def transpose2tensor(x):
@@ -21,7 +21,7 @@ def transpose2tensor(x):
 # ddpg_body_dim = [(128,256), (128,256)]
 class MADDPG:
     def __init__(self, state_size, action_size, ddpg_body_dim, seed, batch_size, buffer_size, tau, gamma, decay_noise,
-                 lr_actor, lr_critic, weight_decay):
+                 lr_actor, lr_critic, weight_decay, device):
         """
         Create a multiagent that consist of of multiple ddpg agents
         Params
@@ -42,10 +42,10 @@ class MADDPG:
         # Critic input = state_size + actions = 24 + 2 + 2 = 28
         self.maddpg_agent = [DDPG_agent(state_size=state_size, action_size=action_size, ddpg_body_dim=ddpg_body_dim,
                                         seed=seed, batch_size=batch_size, tau=tau, decay_noise=decay_noise,
-                                        lr_actor=lr_actor, lr_critic=lr_critic, weight_decay=weight_decay),
+                                        lr_actor=lr_actor, lr_critic=lr_critic, weight_decay=weight_decay, device=device),
                              DDPG_agent(state_size=state_size, action_size=action_size, ddpg_body_dim=ddpg_body_dim,
                                         seed=seed, batch_size=batch_size, tau=tau, decay_noise=decay_noise,
-                                        lr_actor=lr_actor, lr_critic=lr_critic, weight_decay=weight_decay)
+                                        lr_actor=lr_actor, lr_critic=lr_critic, weight_decay=weight_decay, device=device)
                              ]
         self.gamma = gamma
         self.tau = tau
