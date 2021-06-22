@@ -7,9 +7,11 @@ import copy
 
 from models import *
 
+
 class DDPG_agent():
     """This class object design  the ddpg agent
     """
+
     def __init__(self, state_size, action_size, ddpg_body_dim, seed, batch_size, tau, decay_noise,
                  lr_actor, lr_critic, weight_decay, device):
         """INitialise an Agent
@@ -25,7 +27,7 @@ class DDPG_agent():
         # Parameters
         self.state_size = state_size
         self.action_size = action_size
-        self.seed  = random.seed(seed)
+        self.seed = random.seed(seed)
         self.tau = tau
         self.decay_noise = decay_noise
         self.batch_size = batch_size
@@ -44,7 +46,8 @@ class DDPG_agent():
 
     def act(self, state, noise=1.0):
         state = state.to(self.device)
-        action = self.network_local.actor_forward(state) + self.decay_noise * self.noise.level * noise
+        self.noise.level()
+        action = self.network_local.actor_forward(state) + torch.from_numpy(self.decay_noise * self.noise.state * noise)
 
         # Update decaying factor for noise
         self.decay_noise = self.decay_noise * np.random.choice([0.9999, 1], p=(0.1, 0.9))
@@ -53,13 +56,9 @@ class DDPG_agent():
 
     def target_act(self, state, noise):
         state = state.to(self.device)
-        action = self.network_target.actor_forward(state) + self.decay_noise * self.noise.level() * noise
-
-        # Update decaying factor for noise
-        self.decay_noise = self.decay_noise * np.random.choice([0.9999, 1], p=(0.1, 0.9))
+        action = self.network_target.actor_forward(state) + torch.from_numpy(self.decay_noise * self.noise.state * noise)
 
         return action
-
 
 
 class OUNoise:
@@ -79,9 +78,6 @@ class OUNoise:
     def level(self):
         """Define the update for noise level"""
         x = self.state
-        dx = self.theta * (self.mu -x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
         self.state = x + dx
         return self.state
-
-
-

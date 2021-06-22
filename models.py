@@ -58,12 +58,12 @@ class DDPGmodel(nn.Module):
         """Forward action here"""
         for layer in self.actor:
             x = swish(layer(x))
-        action = torch.tanh(self)
+        action = torch.tanh(self.actor_fc(x))
         return action
 
     def critic_forward(self, obs_act):
         """Forward critic networ"""
         for layer in self.critic:
-            obs_act = swish(obs_act)
+            obs_act = swish(layer(obs_act))
         V = self.critic_fc(obs_act)
         return V

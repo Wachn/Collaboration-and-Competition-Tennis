@@ -18,6 +18,7 @@ def transpose2tensor(x):
     return list(map(tensor_transform, zip(*x)))
 
 
+
 # ddpg_body_dim = [(128,256), (128,256)]
 class MADDPG:
     def __init__(self, state_size, action_size, ddpg_body_dim, seed, batch_size, buffer_size, tau, gamma, decay_noise,
@@ -53,9 +54,9 @@ class MADDPG:
         self.action_size = action_size
         self.seed = seed
         self.iter = 0
-
+        self.device = device
         # Replay Buffer
-        self.memory = ReplayBuffer(buffer_size=buffer_size, batch_size=batch_size, seed=seed)
+        self.memory = ReplayBuffer(buffer_size=buffer_size, seed=seed)
 
     def acts(self, states_all_agents, noise=1.0):
         """
@@ -64,8 +65,16 @@ class MADDPG:
         :param noise: Default will be 1.0 else this acts as a switch 0.0 or 1.0
         :return: actions are returned as a list of [agents, (N, dim)]
         """
-        actions = [agent.act(obs, noise) for agent, obs in zip(self.maddpg_agent, states_all_agents)]
-        return actions
+        actions = []
+        states_all_agents = np.expand_dims(states_all_agents, axis=1)
+        for agent, obs in zip(self.maddpg_agent, states_all_agents):
+            agent.network_local.eval()
+            with torch.no_grad():
+                actions.append(np.clip(agent.act(torch.tensor(obs, dtype=torch.float), noise)\
+                                       .cpu().detach().numpy(), -1, 1))
+            agent.network_local.train()
+        # Return actions in [n_agents , dim] same as the
+        return np.vstack(actions)
 
     def target_acts(self, states_all_agents, noise=1.0):
         """
@@ -77,7 +86,7 @@ class MADDPG:
         target_actions = [agent.target_act(obs, noise) for agent, obs in zip(self.maddpg_agent, states_all_agents)]
         return target_actions
 
-    def step(self, experiences, agent_number, gamma, logger):
+    def step(self, experiences, agent_number, logger):
         """
         Learning step to update all the actors and critics of the agent, each agent at a time.
          Q_targets = r + γ * critic_target(next_state, actor_target(next_state))
@@ -97,13 +106,13 @@ class MADDPG:
         target_actions = self.target_acts(next_states)
         # Fuse all the actions together to form [N x dim matrix]
         target_actions = torch.cat(target_actions, dim=1)
-        critic_target_obs = torch.cat((next_states[agent_number], target_actions), dim=1).to(device)
+        critic_target_obs = torch.cat((next_states[agent_number], target_actions), dim=1).float().to(self.device)
 
         with torch.no_grad():
             q_next = agent.network_target.critic_forward(critic_target_obs)
         q_next = rewards[agent_number].view(-1, 1) + self.gamma * q_next * (1 - dones[agent_number].view(-1, 1))
         actions = torch.cat(actions, dim=1)
-        critic_local_obs = torch.cat((states[agent_number], actions), dim=1).to(device)
+        critic_local_obs = torch.cat((states[agent_number], actions), dim=1).to(self.device)
         q = agent.network_local.critic_forward(critic_local_obs)
 
         hubber_loss = torch.nn.SmoothL1Loss()
@@ -117,8 +126,11 @@ class MADDPG:
         actor_local_actions = [self.maddpg_agent[i].act(state) if i == agent_number \
                                    else self.maddpg_agent[i].act(state).detach()
                                for i, state in enumerate(states)]
-        actor_local_obs = torch.cat((states[agent_number], torch.cat(actor_local_actions, dim=1)), dim=1).to(device)
-        policy_loss = -agent.network_local.critic_forward(actor_local_obs)
+        actor_local_obs = torch.cat((states[agent_number], torch.cat(actor_local_actions,\
+                                    dim=1)), dim=1).float().to(self.device)
+
+        # print("Actor Obs for critic: ", actor_local_obs.shape)
+        policy_loss = -agent.network_local.critic_forward(actor_local_obs).mean()
         policy_loss.backward()
 
         agent.network_local.optim_actor.step()
@@ -155,11 +167,10 @@ class ReplayBuffer:
     Buffer containing fixed length tuple
     """
 
-    def __init__(self, buffer_size, batch_size, seed):
+    def __init__(self, buffer_size, seed):
         self.memory = deque(maxlen=buffer_size)
         self.experience = namedtuple("Experience", field_names=['state', 'action', 'reward', 'next_state', 'done'])
         self.seed = random.seed(seed)
-        self.batch_size = batch_size
 
     def add_experience(self, state, action, reward, next_state, done):
         """
@@ -168,17 +179,17 @@ class ReplayBuffer:
         exp = self.experience(state, action, reward, next_state, done)
         self.memory.append(exp)
 
-    def sample(self):
+    def sample(self, batch_size):
         """
         Randomly sample a mini-batch of experience
         """
-        experiences = random.sample(self.memory, k=self.batch_size)
+        experiences = random.sample(self.memory, k=batch_size)
         # Convert to torch tensors
-        states = np.vstack([e.state for e in experiences if e is not None])
-        actions = np.vstack([e.action for e in experiences if e is not None])
-        rewards = np.vstack([e.reward for e in experiences if e is not None])
-        next_states = np.vstack([e.next_state for e in experiences if e is not None])
-        dones = np.vstack([e.done for e in experiences if e is not None])
+        states = np.stack([e.state for e in experiences if e is not None])
+        actions = np.stack([e.action for e in experiences if e is not None])
+        rewards = np.stack([e.reward for e in experiences if e is not None])
+        next_states = np.stack([e.next_state for e in experiences if e is not None])
+        dones = np.stack([e.done for e in experiences if e is not None])
 
         return (states, actions, rewards, next_states, dones)
 
