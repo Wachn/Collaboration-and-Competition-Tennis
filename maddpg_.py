@@ -70,8 +70,8 @@ class MADDPG:
         for agent, obs in zip(self.maddpg_agent, states_all_agents):
             agent.network_local.eval()
             with torch.no_grad():
-                actions.append(np.clip(agent.act(torch.tensor(obs, dtype=torch.float), noise)\
-                                       .cpu().detach().numpy(), -1, 1))
+                actions.append(agent.act(torch.tensor(obs, dtype=torch.float, device=self.device), noise)\
+                                       .cpu().detach())
             agent.network_local.train()
         # Return actions in [n_agents , dim] same as the
         return np.vstack(actions)
@@ -106,11 +106,11 @@ class MADDPG:
         target_actions = self.target_acts(next_states)
         # Fuse all the actions together to form [N x dim matrix]
         target_actions = torch.cat(target_actions, dim=1)
-        critic_target_obs = torch.cat((next_states[agent_number], target_actions), dim=1).float().to(self.device)
+        critic_target_obs = torch.cat((next_states[agent_number].to(self.device), target_actions), dim=1).float().to(self.device)
 
         with torch.no_grad():
             q_next = agent.network_target.critic_forward(critic_target_obs)
-        q_next = rewards[agent_number].view(-1, 1) + self.gamma * q_next * (1 - dones[agent_number].view(-1, 1))
+        q_next = rewards[agent_number].view(-1, 1).to(self.device) + self.gamma * q_next * (1 - dones[agent_number].view(-1, 1).to(self.device))
         actions = torch.cat(actions, dim=1)
         critic_local_obs = torch.cat((states[agent_number], actions), dim=1).to(self.device)
         q = agent.network_local.critic_forward(critic_local_obs)
@@ -118,7 +118,7 @@ class MADDPG:
         hubber_loss = torch.nn.SmoothL1Loss()
         critic_loss = hubber_loss(q, q_next.detach())
         critic_loss.backward()
-
+        torch.nn.utils.clip_grad_norm_(agent.network_local.critic_params, 1,2)
         agent.network_local.optim_critic.step()
 
         # -------------Actor--------------#
@@ -126,17 +126,18 @@ class MADDPG:
         actor_local_actions = [self.maddpg_agent[i].act(state) if i == agent_number \
                                    else self.maddpg_agent[i].act(state).detach()
                                for i, state in enumerate(states)]
-        actor_local_obs = torch.cat((states[agent_number], torch.cat(actor_local_actions,\
-                                    dim=1)), dim=1).float().to(self.device)
+        actor_local_obs = torch.cat((states[agent_number].to(self.device), torch.cat(actor_local_actions,\
+                                    dim=1)), dim=1).float()
 
         # print("Actor Obs for critic: ", actor_local_obs.shape)
         policy_loss = -agent.network_local.critic_forward(actor_local_obs).mean()
         policy_loss.backward()
 
         agent.network_local.optim_actor.step()
-
+        torch.nn.utils.clip_grad_norm_(agent.network_local.actor_params, 1,2)
         pl = policy_loss.cpu().detach().item()
         cl = critic_loss.cpu().detach().item()
+        print(pl,cl)
         logger.add_scalars("agent%i/losses" % agent_number,
                            {'Critic Loss': cl,
                             'Policy Loss': pl},

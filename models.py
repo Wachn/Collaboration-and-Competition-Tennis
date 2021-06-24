@@ -38,6 +38,7 @@ class DDPGmodel(nn.Module):
         )
         self.actor_feature_dim = self.ddpgActor_dim[-1]
         self.actor_fc = uniform_init(nn.Linear(self.actor_feature_dim, self.action_size))
+        self.actor_bn = nn.BatchNorm1d(self.ddpgActor_dim[0])
 
         # Critic
         self.critic = nn.ModuleList(
@@ -45,6 +46,7 @@ class DDPGmodel(nn.Module):
         )
         self.critic_feature_dim = self.ddpgCritic_dim[-1]
         self.critic_fc = uniform_init(nn.Linear(self.critic_feature_dim,1))
+        self.critic_bn = nn.BatchNorm1d(self.ddpgCritic_dim[0])
 
 
         # Parameters for backpropagation
@@ -56,6 +58,7 @@ class DDPGmodel(nn.Module):
 
     def actor_forward(self, x):
         """Forward action here"""
+        x = self.actor_bn(x)
         for layer in self.actor:
             x = swish(layer(x))
         action = torch.tanh(self.actor_fc(x))
@@ -63,6 +66,7 @@ class DDPGmodel(nn.Module):
 
     def critic_forward(self, obs_act):
         """Forward critic networ"""
+        obs_act = self.critic_bn(obs_act)
         for layer in self.critic:
             obs_act = swish(layer(obs_act))
         V = self.critic_fc(obs_act)
