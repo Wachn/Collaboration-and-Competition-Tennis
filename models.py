@@ -33,30 +33,47 @@ class DDPGmodel(nn.Module):
         self.ddpgCritic_dim = (state_size + 2*action_size,) + ddpgCritic_body_dim
 
         # Actor
-        self.actor = nn.ModuleList(
-            [uniform_init(nn.Linear(dim_in, dim_out)) for dim_in, dim_out in zip(self.ddpgActor_dim[:-1], self.ddpgActor_dim[1:])]
-        )
-        self.actor_feature_dim = self.ddpgActor_dim[-1]
-        self.actor_fc = uniform_init(nn.Linear(self.actor_feature_dim, self.action_size))
-        self.actor_bn = nn.BatchNorm1d(self.ddpgActor_dim[0])
+        self.actor = DDPG_actor(self.ddpgActor_dim, action_size)
 
         # Critic
-        self.critic = nn.ModuleList(
-            [uniform_init(nn.Linear(dim_in, dim_out)) for dim_in, dim_out in zip(self.ddpgCritic_dim[:-1], self.ddpgCritic_dim[1:])]
-        )
-        self.critic_feature_dim = self.ddpgCritic_dim[-1]
-        self.critic_fc = uniform_init(nn.Linear(self.critic_feature_dim,1))
-        self.critic_bn = nn.BatchNorm1d(self.ddpgCritic_dim[0])
-
+        self.critic = DDPG_critic(self.ddpgCritic_dim)
 
         # Parameters for backpropagation
-        self.actor_params = list(self.actor.parameters()) + list(self.actor_fc.parameters())
-        self.critic_params = list(self.critic.parameters()) + list (self.critic_fc.parameters())
+        self.actor_params = list(self.actor.actor.parameters()) + list(self.actor.actor_fc.parameters())
+        self.critic_params = list(self.critic.critic.parameters()) + list (self.critic.critic_fc.parameters())
 
         self.optim_actor = optim.Adam(self.actor_params, lr=lr_actor, weight_decay=weight_decay)
         self.optim_critic = optim.Adam(self.critic_params, lr=lr_critic, weight_decay=weight_decay)
 
     def actor_forward(self, x):
+        """Forward action here"""
+
+        action = self.actor.forward(x)
+        return action
+
+    def critic_forward(self, obs_act):
+        """Forward critic networ"""
+        
+        V = self.critic.forward(obs_act)
+        return V
+    
+class DDPG_actor(nn.Module):
+    """DDPG Actor"""
+
+    def __init__(self, ddpgActor_dim, action_size):
+        super(DDPG_actor, self).__init__()
+        self.ddpgActor_dim = ddpgActor_dim
+        self.action_size = action_size
+        
+        self.actor = nn.ModuleList(
+            [uniform_init(nn.Linear(dim_in, dim_out)) for dim_in, dim_out in
+             zip(self.ddpgActor_dim[:-1], self.ddpgActor_dim[1:])]
+        )
+        self.actor_feature_dim = self.ddpgActor_dim[-1]
+        self.actor_fc = uniform_init(nn.Linear(self.actor_feature_dim, self.action_size))
+        self.actor_bn = nn.BatchNorm1d(self.ddpgActor_dim[0])
+
+    def forward(self, x):
         """Forward action here"""
         x = self.actor_bn(x)
         for layer in self.actor:
@@ -64,7 +81,22 @@ class DDPGmodel(nn.Module):
         action = torch.tanh(self.actor_fc(x))
         return action
 
-    def critic_forward(self, obs_act):
+
+class DDPG_critic(nn.Module):
+    """DDPG Critic"""
+
+    def __init__(self, ddpgCritic_dim):
+        super(DDPG_critic, self).__init__()
+        self.ddpgCritic_dim = ddpgCritic_dim
+        self.critic = nn.ModuleList(
+            [uniform_init(nn.Linear(dim_in, dim_out)) for dim_in, dim_out in
+             zip(self.ddpgCritic_dim[:-1], self.ddpgCritic_dim[1:])]
+        )
+        self.critic_feature_dim = self.ddpgCritic_dim[-1]
+        self.critic_fc = uniform_init(nn.Linear(self.critic_feature_dim, 1))
+        self.critic_bn = nn.BatchNorm1d(self.ddpgCritic_dim[0])
+
+    def forward(self, obs_act):
         """Forward critic networ"""
         obs_act = self.critic_bn(obs_act)
         for layer in self.critic:
