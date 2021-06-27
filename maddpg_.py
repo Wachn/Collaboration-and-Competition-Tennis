@@ -58,7 +58,7 @@ class MADDPG:
         # Replay Buffer
         self.memory = ReplayBuffer(buffer_size=buffer_size, seed=seed)
 
-    def acts(self, states_all_agents, noise=1.0):
+    def acts(self, states_all_agents, noise=0.1):
         """
         Get the actions from all agents in the MADDPG object
         :param states_all_agents (float): Matrix of the observables in numpy,shape of [n_agents, dim]  = (2,24)
@@ -76,7 +76,7 @@ class MADDPG:
         # Return actions in [n_agents , dim] same as the
         return np.vstack(actions)
 
-    def target_acts(self, states_all_agents, noise=1.0):
+    def target_acts(self, states_all_agents, noise=0.1):
         """
         Target network actions from all of the agent in MADDPG agent
         :param states_all_agents (float): Matrix of the observables in numpy,shape of [n_agents, dim]  = (2,24)
@@ -114,7 +114,8 @@ class MADDPG:
         actions = torch.cat(actions, dim=1)
         critic_local_obs = torch.cat((states[agent_number], actions), dim=1).to(self.device)
         q = agent.network_local.critic_forward(critic_local_obs)
-
+        #print("actions: ", target_actions[0])
+        #print("Value, ", q_next[0])
         hubber_loss = torch.nn.SmoothL1Loss()
         critic_loss = hubber_loss(q, q_next.detach())
         critic_loss.backward()
@@ -129,7 +130,7 @@ class MADDPG:
         actor_local_obs = torch.cat((states[agent_number].to(self.device), torch.cat(actor_local_actions,\
                                     dim=1)), dim=1).float()
 
-        # print("Actor Obs for critic: ", actor_local_obs.shape)
+
         policy_loss = -agent.network_local.critic_forward(actor_local_obs).mean()
         policy_loss.backward()
 
@@ -137,7 +138,7 @@ class MADDPG:
         torch.nn.utils.clip_grad_norm_(agent.network_local.actor_params, 1,2)
         pl = policy_loss.cpu().detach().item()
         cl = critic_loss.cpu().detach().item()
-        print(policy_loss,critic_loss)
+
         logger.add_scalars("agent%i/losses" % agent_number,
                            {'Critic Loss': cl,
                             'Policy Loss': pl},

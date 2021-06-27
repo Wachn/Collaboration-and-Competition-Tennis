@@ -2,15 +2,22 @@ import torch
 import torch.nn as nn
 import torch.functional as F
 import torch.optim as optim
+import numpy as np
 
 
 def swish(x):
     return x * torch.sigmoid(x)
 
 def uniform_init(layer):
-    nn.init.uniform_(layer.weight.data)
+    nn.init.uniform_(layer.weight.data, *hidden_init(layer))
     nn.init.constant_(layer.bias.data, 0)
     return layer
+
+def hidden_init(layer):
+    fan_in = layer.weight.data.size()[0]
+    lim = 1./np.sqrt((fan_in))
+    return ((-lim,lim))
+
 
 # placeholder for ddpg dimensions
 ddpgActor_body_dim = (256, 128)
