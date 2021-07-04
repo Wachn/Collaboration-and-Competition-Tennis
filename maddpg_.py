@@ -138,7 +138,7 @@ class MADDPG:
         torch.nn.utils.clip_grad_norm_(agent.network_local.actor_params, 1,2)
         pl = policy_loss.cpu().detach().item()
         cl = critic_loss.cpu().detach().item()
-
+        #print("Loss:",pl,cl)
         logger.add_scalars("agent%i/losses" % agent_number,
                            {'Critic Loss': cl,
                             'Policy Loss': pl},

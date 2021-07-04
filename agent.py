@@ -52,13 +52,13 @@ class DDPG_agent():
         # Update decaying factor for noise
         self.decay_noise = self.decay_noise * np.random.choice([0.999, 1], p=(0.1, 0.9))
 
-        return action.clip(-1,1)
-
+        return action
+    
     def target_act(self, state, noise):
         state = state.to(self.device)
         action = self.network_target.actor_forward(state) + torch.from_numpy(self.decay_noise * self.noise.state * noise).to(self.device)
 
-        return action.clip(-1,1)
+        return action
 
 
 class OUNoise:
