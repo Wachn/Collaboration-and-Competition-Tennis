@@ -134,17 +134,18 @@ class Actor(nn.Module):
         )
         self.fc = nn.Linear(self.net_body_dim[-1], action_size)
         self.reset_parameters()
-        self.bn = nn.BatchNorm1d(state_size)
+        self.bn = nn.BatchNorm1d(self.net_body_dim[1])
 
     def reset_parameters(self):
         for i in range(len(self.net_body)):
             self.net_body[i].weight.data.uniform_(*hidden_init(self.net_body[i]))
-        self.fc.weight.data.uniform_(*hidden_init(self.fc))
+        self.fc.weight.data.uniform_(-3e-3,3e-3)
 
     def forward(self, obs):
         """Actor net map states to actions"""
-        obs = self.bn(obs)
-        for layer in self.net_body:
+        for i, layer in enumerate(self.net_body):
+            if i==1:
+                obs = self.bn(obs)
             obs = swish(layer(obs))
         act = torch.tanh(self.fc(obs))
         return act
@@ -165,9 +166,7 @@ class Critic(nn.Module):
         self.action_size = action_size
         self.state_size = state_size
         self.seed = torch.manual_seed(seed)
-        self.net_body_dim = ((action_size+state_size)*n_agent,) + linear_dim
-
-        self.fc_critic = nn.Linear(state_size, state_size*n_agent)
+        self.net_body_dim = ((action_size*n_agent)+state_size,) + linear_dim
 
         self.net_body = nn.ModuleList(
                         [nn.Linear(in_dim, out_dim) for in_dim, out_dim in
@@ -175,24 +174,23 @@ class Critic(nn.Module):
                         )
         self.fc = nn.Linear (linear_dim[-1], 1)
         self.reset_parameters()
-        self.bn = nn.BatchNorm1d(state_size)
-        self.bn2 = nn.BatchNorm1d(self.net_body_dim[0])
+        self.bn = nn.BatchNorm1d(self.net_body_dim[1])
 
     def reset_parameters(self):
         for i in range(len(self.net_body)):
             self.net_body[i].weight.data.uniform_(*hidden_init(self.net_body[i]))
-        self.fc.weight.data.uniform_(*hidden_init(self.fc))
+        self.fc.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, obs, actions):
         """Actor net map states to actions
         :param actions: (float) (batch_size, n_agents x actions)
         :param obs: (float) (batch_size, state)
         """
-        obs = self.bn(obs)
-        obs = swish(self.fc_critic(obs))
         x = torch.cat((obs, actions), dim=1).float()
-        x = self.bn2(x)
-        for layer in self.net_body:
+
+        for i, layer in enumerate(self.net_body):
+            if i==1:
+                x = self.bn(x)
             x = swish(layer(x))
         x = self.fc(x)
         return x

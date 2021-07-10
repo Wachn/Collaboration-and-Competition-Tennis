@@ -43,14 +43,14 @@ class DDPG_agent():
         self.actor_target = Actor(linear_net_dim[0], action_size, state_size, seed).to(device)
         self.actor_target.load_state_dict(self.actor_local.state_dict())
         self.optimizer_actor = optim.Adam(self.actor_local.parameters(), lr =lr_actor, weight_decay=weight_decay)
-
+        self.scheduler_actor = optim.lr_scheduler.ExponentialLR(self.optimizer_actor, gamma=.99)
 
         # Critic
         self.critic_local = Critic(linear_net_dim[1], action_size, state_size, n_agent, seed).to(device)
         self.critic_target = Critic(linear_net_dim[1], action_size, state_size, n_agent, seed).to(device)
         self.critic_target.load_state_dict(self.critic_local.state_dict())
         self.optimizer_critic  = optim.Adam(self.critic_local.parameters(), lr=lr_critic, weight_decay=weight_decay)
-
+        self.scheduler_critic = optim.lr_scheduler.ExponentialLR(self.optimizer_critic, gamma=.99)
 
 
 
