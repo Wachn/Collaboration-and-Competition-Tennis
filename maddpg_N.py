@@ -135,8 +135,7 @@ class MADDPG:
         # ----------------------------Critic--------------------------#
         target_actions = torch.cat(self.target_act(next_states), dim=1)
      
-        with torch.no_grad():
-            q_next = agent.critic_target(next_states[agent_number], target_actions)
+        q_next = agent.critic_target(next_states[agent_number], target_actions)
         q_next = rewards[agent_number].view(-1, 1) + \
                  self.gamma * q_next * (1 - dones[agent_number].view(-1, 1))
         actions = torch.cat(actions, dim=1)
@@ -163,7 +162,8 @@ class MADDPG:
         
         pl = policy_loss.cpu().detach().item()
         cl = critic_loss.cpu().detach().item()
-        assert (pl < 2.0) and (cl<1.0), "Policy Loss blowing Up, {} and {}".format(pl,cl)
+        if (pl > 2.0):
+            print("Policy Loss blowing Up, {} and {}".format(pl,cl))
         logger.add_scalars("agent%i/losses" % agent_number,
                            {'Critic Loss': cl,
                             'Policy Loss': pl},
