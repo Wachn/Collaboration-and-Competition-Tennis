@@ -101,7 +101,7 @@ class MADDPG:
 
             # Include noise to this
             self.noise.level()
-            action = np.clip(action + np.maximum(self.decay_noise * self.noise.state * noise, 0.001), -1, 1)
+            action = np.clip(action + np.maximum(self.decay_noise * self.noise.state * noise, 0.01), -1, 1)
 
             # Update decaying factor for noise
             self.decay_noise = self.decay_noise * np.random.choice([0.999, 1], p=(0.1, 0.9))
