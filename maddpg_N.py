@@ -81,6 +81,8 @@ class MADDPG:
         
         # Add Noise
         self.noise = OUNoise(action_size, seed)
+        self.min_noise = 0.01
+        self.OUNoise = 0
         # Replay Buffer
         self.memory = ReplayBuffer(buffer_size=buffer_size, seed=seed, device=device)
 
@@ -101,10 +103,11 @@ class MADDPG:
 
             # Include noise to this
             self.noise.level()
-            action = np.clip(action + np.maximum(self.decay_noise * self.noise.state * noise, 0.01), -1, 1)
+            self.OUNoise = np.maximum(self.decay_noise * self.noise.state * noise, self.min_noise)
+            action = np.clip(action + self.OUNoise , -1, 1)
 
             # Update decaying factor for noise
-            self.decay_noise = self.decay_noise * np.random.choice([0.999, 1], p=(0.1, 0.9))
+            self.decay_noise = self.decay_noise * np.random.choice([0.99, 1], p=(0.1, 0.9))
             actions.append(action)
         return np.vstack(actions)
 
@@ -192,10 +195,11 @@ class MADDPG:
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
     
     def lr_update(self):
-        self.tau*=0.995
+        self.min_noise*=0.99
+        self.tau*=0.99
         #for ddpg_agent in self.maddpg_agent:
-            #ddpg_agent.scheduler_actor.step();
-            #ddpg_agent.scheduler_critic.step();
+        #    ddpg_agent.scheduler_actor.step();
+        #   ddpg_agent.scheduler_critic.step();
 
 
 class ReplayBuffer:
