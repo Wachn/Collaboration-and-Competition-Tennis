@@ -1,7 +1,11 @@
-Report.ipynb
 Tennis_Linux_NoVis/
 .idea
 Tennis_Windows_x86_64/
 python/
 .ipynb_checkpoints/
 unity-environment.log
+Tennis-Copy1.ipynb
+Tennis_Linux_NoVis-Copy/
+agent.py
+maddpg_.py
+p-README.md

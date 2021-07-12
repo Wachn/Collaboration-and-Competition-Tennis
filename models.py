@@ -110,3 +110,88 @@ class DDPG_critic(nn.Module):
             obs_act = swish(layer(obs_act))
         V = self.critic_fc(obs_act)
         return V
+
+class Actor(nn.Module):
+    """Generic model  for MADDPG"""
+    def __init__(self, linear_dim, action_size, state_size, seed):
+        """
+        Params
+        ======
+        :param linear_dim:  (list) e.g.[256,128]
+        :param action_size: (int) 2
+        :param state_size:  (int 8
+        :param seed:  (int) 0
+        """
+        super(Actor, self).__init__()
+        self.state_size = state_size
+        self.action_size = action_size
+        self.net_body_dim = (state_size,) + linear_dim
+        self.seed = torch.manual_seed(seed)
+
+        self.net_body = nn.ModuleList(
+                        [nn.Linear(dim_in, dim_out) for dim_in, dim_out in
+                         zip(self.net_body_dim[:-1], self.net_body_dim[1:])]
+        )
+        self.fc = nn.Linear(self.net_body_dim[-1], action_size)
+        self.reset_parameters()
+        self.bn = nn.BatchNorm1d(self.net_body_dim[1])
+
+    def reset_parameters(self):
+        for i in range(len(self.net_body)):
+            self.net_body[i].weight.data.uniform_(*hidden_init(self.net_body[i]))
+        self.fc.weight.data.uniform_(-3e-3,3e-3)
+
+    def forward(self, obs):
+        """Actor net map states to actions"""
+        for i, layer in enumerate(self.net_body):
+            if i==1:
+                obs = self.bn(obs)
+            obs = swish(layer(obs))
+        act = torch.tanh(self.fc(obs))
+        return act
+
+class Critic(nn.Module):
+    """Generic Critic for MADDPG"""
+    def __init__(self, linear_dim, action_size, state_size, n_agent, seed):
+        """
+        Params
+        =======
+        :param linear_dim: (list: int) E.g. [300,256]
+        :param action_size: (int) 2
+        :param state_size: (int) 8
+        :param n_agent: (int) 2
+        :param seed: (int)
+        """
+        super(Critic, self).__init__()
+        self.action_size = action_size
+        self.state_size = state_size
+        self.seed = torch.manual_seed(seed)
+        self.net_body_dim = ((action_size*n_agent)+state_size,) + linear_dim
+
+        self.net_body = nn.ModuleList(
+                        [nn.Linear(in_dim, out_dim) for in_dim, out_dim in
+                         zip(self.net_body_dim[:-1], self.net_body_dim[1:])]
+                        )
+        self.fc = nn.Linear (linear_dim[-1], 1)
+        self.reset_parameters()
+        self.bn = nn.BatchNorm1d(self.net_body_dim[1])
+
+    def reset_parameters(self):
+        for i in range(len(self.net_body)):
+            self.net_body[i].weight.data.uniform_(*hidden_init(self.net_body[i]))
+        self.fc.weight.data.uniform_(-3e-3, 3e-3)
+
+    def forward(self, obs, actions):
+        """Actor net map states to actions
+        :param actions: (float) (batch_size, n_agents x actions)
+        :param obs: (float) (batch_size, state)
+        """
+        x = torch.cat((obs, actions), dim=1).float()
+
+        for i, layer in enumerate(self.net_body):
+            if i==1:
+                x = self.bn(x)
+            x = swish(layer(x))
+        x = self.fc(x)
+        return x
+

@@ -28,7 +28,7 @@ Installation
 ### Step 1: Clone DRLND Repository
 Clone this repository
 ```bash
-git https://github.com/Wachn/Collaboration-and-Competition-Tennis.git
+git clone https://github.com/Wachn/Collaboration-and-Competition-Tennis.git
 ```
 
 ### Step 2: Download the Unity Environment (ML-Agents toolkit)
