@@ -7,5 +7,4 @@ python/
 unity-environment.log
 Tennis-Copy1.ipynb
 Tennis_Linux_NoVis-Copy/
-agent.py
-maddpg_.py
+
